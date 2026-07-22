@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check src/controllers/auth.controller.js && node --check src/controllers/vehiculos.controller.js && node --check src/controllers/accesos.controller.js"
+    "check": "node --check server.js && node --check src/middlewares/auth.middleware.js && node --check src/controllers/auth.controller.js && node --check src/controllers/vehiculos.controller.js && node --check src/controllers/accesos.controller.js && node --check src/routes/auth.routes.js && node --check src/routes/vehiculos.routes.js && node --check src/routes/accesos.routes.js"
   },
   "keywords": [],
   "author": "",

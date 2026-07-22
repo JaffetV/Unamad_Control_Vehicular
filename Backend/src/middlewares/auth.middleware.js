@@ -29,8 +29,3 @@ function soloRoles(...rolesPermitidos) {
 const soloSuperadmin = soloRoles('superadmin');
 
 module.exports = { verificarToken, soloRoles, soloSuperadmin };
-  }
-  next();
-}
-
-module.exports = { verificarToken, soloSuperadmin };

@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import escudoUnamad from './assets/escudo-unamad.png';
 import mascotaUnamad from './assets/mascota-unamad.png';
 import unamadAdmin from './assets/unamad-admin.png';
+import { api } from './services/api';
 
 function Icon({ name }) {
   const paths = {
@@ -42,7 +43,7 @@ function Field({ icon, label, children }) {
   );
 }
 
-function LoginForm({ isAdmin, onSubmit }) {
+function LoginForm({ isAdmin, onSubmit, cargando }) {
   return (
     <form className="form" onSubmit={(event) => onSubmit(event, isAdmin ? 'admin' : 'login')}>
       {isAdmin ? (
@@ -54,7 +55,7 @@ function LoginForm({ isAdmin, onSubmit }) {
           <Field icon="lock" label="Contraseña de superusuario">
             <input name="password" type="password" placeholder="Contraseña segura" autoComplete="current-password" minLength="12" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{12,}" title="Usa al menos 12 caracteres, una mayúscula, una minúscula y un número." required />
           </Field>
-          <button className="primary-button" type="submit">Ingresar como Admin</button>
+          <button className="primary-button" type="submit" disabled={cargando}>{cargando ? 'Verificando...' : 'Ingresar como Admin'}</button>
         </>
       ) : (
         <>
@@ -64,14 +65,14 @@ function LoginForm({ isAdmin, onSubmit }) {
           <Field icon="lock" label="Contraseña">
             <input name="password" type="password" placeholder="Contraseña" autoComplete="current-password" required />
           </Field>
-          <button className="primary-button" type="submit">Ingresar</button>
+          <button className="primary-button" type="submit" disabled={cargando}>{cargando ? 'Ingresando...' : 'Ingresar'}</button>
         </>
       )}
     </form>
   );
 }
 
-function RegisterForm({ onSubmit }) {
+function RegisterForm({ onSubmit, cargando }) {
   return (
     <form className="form" onSubmit={(event) => onSubmit(event, 'register')}>
       <Field icon="user" label="Nombre completo">
@@ -87,28 +88,18 @@ function RegisterForm({ onSubmit }) {
         <select name="carrera" defaultValue="" required>
           <option value="" disabled>Selecciona tu carrera</option>
           <option value="Ingeniería de Sistemas e Informática">Ingeniería de Sistemas e Informática</option>
-          <option value="Contabilidad y Finanzas">Contabilidad y Finanzas</option>
-          <option value="Derecho y Ciencias Políticas">Derecho y Ciencias Políticas</option>
         </select>
       </Field>
       <Field icon="mail" label="Correo institucional">
         <input name="correo" type="email" placeholder="Correo institucional" autoComplete="email" required />
       </Field>
       <Field icon="lock" label="Contraseña">
-        <input name="password" type="password" placeholder="Contraseña" autoComplete="new-password" minLength="8" required />
+        <input name="password" type="password" placeholder="Contraseña segura" autoComplete="new-password" minLength="12" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{12,}" title="Usa al menos 12 caracteres, una mayúscula, una minúscula y un número." required />
       </Field>
-      <button className="primary-button" type="submit">Crear cuenta</button>
+      <button className="primary-button" type="submit" disabled={cargando}>{cargando ? 'Creando cuenta...' : 'Crear cuenta'}</button>
     </form>
   );
 }
-
-const usuarioDemo = {
-  nombre: 'Carlos Mendoza Quispe',
-  correo: 'carlos.mendoza@unamad.edu.pe',
-  matricula: 'U2024-0157',
-  placa: 'ABC-123',
-  carrera: 'Ingeniería Forestal',
-};
 
 const puntosAcceso = [
   ['Puerta 1 - Principal', 'Acceso principal', '🚪'],
@@ -117,7 +108,7 @@ const puntosAcceso = [
   ['Puerta 4 - Emergencia', 'Acceso restringido', '△'],
 ];
 
-function PanelUsuario({ usuario, onCerrarSesion }) {
+function PanelUsuario({ usuario, historial, onCerrarSesion }) {
   const [fotoPerfil, setFotoPerfil] = useState(mascotaUnamad);
   const [chatAbierto, setChatAbierto] = useState(false);
   const inputFoto = useRef(null);
@@ -130,10 +121,13 @@ function PanelUsuario({ usuario, onCerrarSesion }) {
     lector.readAsDataURL(archivo);
   }
 
-  const historial = [
-    ['INGRESO', 'Puerta 1 - Principal', 'Jul 21, 2026 at 4:57 PM', '↘'],
-    ['SALIDA', 'Puerta 3 - Estacionamiento', 'Jul 21, 2026 at 10:57 AM', '↗'],
-  ];
+  const historialVista = historial.map((acceso) => ({
+    tipo: acceso.fecha_hora_salida ? 'SALIDA' : 'INGRESO',
+    puerta: acceso.puerta,
+    fecha: new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(acceso.fecha_hora_salida || acceso.fecha_hora_entrada)),
+    flecha: acceso.fecha_hora_salida ? '↗' : '↘',
+  }));
+  const vehiculoDentro = historial.some((acceso) => !acceso.fecha_hora_salida);
 
   return (
     <main className="app-shell">
@@ -167,7 +161,7 @@ function PanelUsuario({ usuario, onCerrarSesion }) {
 
         <section className="vehicle-status" aria-label="Estado del vehículo">
           <span className="status-badge">✦</span>
-          <div><small>Estado del vehículo</small><strong>DENTRO</strong></div>
+          <div><small>Estado del vehículo</small><strong>{vehiculoDentro ? 'DENTRO' : 'FUERA'}</strong></div>
         </section>
 
         <section className="panel-section" aria-labelledby="puntos-title">
@@ -184,15 +178,16 @@ function PanelUsuario({ usuario, onCerrarSesion }) {
         </section>
 
         <section className="panel-section history-section" aria-labelledby="history-title">
-          <div className="section-heading"><h2 id="history-title">Historial de accesos</h2><span>2 registros</span></div>
+          <div className="section-heading"><h2 id="history-title">Historial de accesos</h2><span>{historialVista.length} registros</span></div>
           <div className="history-list">
-            {historial.map(([tipo, puerta, fecha, flecha]) => (
-              <article className={`history-item ${tipo.toLowerCase()}`} key={tipo}>
-                <span className="history-icon" aria-hidden="true">{flecha}</span>
-                <div className="history-main"><strong>{tipo}</strong><small>{puerta}</small><em>♟ {usuario.nombre}</em></div>
-                <div className="history-meta"><time>{fecha}</time><small>{usuario.placa}</small><b>AUTORIZADO</b></div>
+            {historialVista.map((acceso, indice) => (
+              <article className={`history-item ${acceso.tipo.toLowerCase()}`} key={`${acceso.fecha}-${indice}`}>
+                <span className="history-icon" aria-hidden="true">{acceso.flecha}</span>
+                <div className="history-main"><strong>{acceso.tipo}</strong><small>{acceso.puerta}</small><em>♟ {usuario.nombre}</em></div>
+                <div className="history-meta"><time>{acceso.fecha}</time><small>{usuario.placa}</small><b>AUTORIZADO</b></div>
               </article>
             ))}
+            {historialVista.length === 0 && <p className="empty-state">Aún no hay accesos registrados.</p>}
           </div>
         </section>
 
@@ -231,13 +226,6 @@ function ChatGrupal({ usuario, fotoPerfil }) {
   );
 }
 
-const registrosAdmin = [
-  ['Carlos Mendoza Quispe', 'ABC-123', 'Puerta 1 - Principal', 'Jul 21, 2026 at 4:57 PM'],
-  ['María Fernanda Ríos', 'DEF-456', 'Puerta 1 - Principal', 'Jul 21, 2026 at 3:57 PM'],
-  ['José Luis Torres', 'GHI-789', 'Puerta 2 - Secundaria', 'Jul 21, 2026 at 2:57 PM'],
-  ['Ana Lucía Vargas', 'JKL-012', 'Puerta 3 - Estacionamiento', 'Jul 21, 2026 at 1:57 PM'],
-];
-
 const puertasAdmin = [
   ['Puerta 1 - Principal', 'Principal · Monitoreada', '🚪'],
   ['Puerta 2 - Secundaria', 'Secundaria', '▯'],
@@ -255,19 +243,19 @@ function AdminNavigation({ activeSection, onChange, onCamera }) {
   );
 }
 
-function EstadisticasAdmin() {
+function EstadisticasAdmin({ total }) {
   return (
     <section className="admin-stats" aria-label="Resumen de accesos">
-      <article><span className="stat-icon blue">◌</span><strong>8</strong><small>Total accesos</small></article>
-      <article><span className="stat-icon green">✦</span><strong>7</strong><small>Autorizados</small></article>
-      <article><span className="stat-icon red">✿</span><strong>1</strong><small>Denegados</small></article>
+      <article><span className="stat-icon blue">◌</span><strong>{total}</strong><small>Total accesos</small></article>
+      <article><span className="stat-icon green">✦</span><strong>{total}</strong><small>Autorizados</small></article>
+      <article><span className="stat-icon red">✿</span><strong>0</strong><small>Denegados</small></article>
     </section>
   );
 }
 
-function RegistrosAdmin() {
+function RegistrosAdmin({ registros }) {
   const [consulta, setConsulta] = useState('');
-  const registrosFiltrados = registrosAdmin.filter((registro) => registro.join(' ').toLocaleLowerCase().includes(consulta.toLocaleLowerCase()));
+  const registrosFiltrados = registros.filter((registro) => registro.join(' ').toLocaleLowerCase().includes(consulta.toLocaleLowerCase()));
 
   return (
     <section className="admin-content" aria-labelledby="registros-title">
@@ -304,9 +292,9 @@ function PuertasAdmin({ onCamera }) {
   );
 }
 
-function CamaraSeguridad({ puertaInicial, onCerrar }) {
+function CamaraSeguridad({ puertaInicial, onCerrar, registros }) {
   const [puerta, setPuerta] = useState(puertaInicial || puertasAdmin[0][0]);
-  const registrosPuerta = registrosAdmin.filter((registro, indice) => indice < (puerta.includes('Estacionamiento') ? 1 : 3));
+  const registrosPuerta = registros.filter((registro) => registro[2] === puerta);
 
   return (
     <main className="app-shell admin-shell">
@@ -327,13 +315,26 @@ function CamaraSeguridad({ puertaInicial, onCerrar }) {
   );
 }
 
-function PanelAdmin({ onCerrarSesion }) {
+function PanelAdmin({ token, onCerrarSesion }) {
   const [seccion, setSeccion] = useState('registros');
   const [camara, setCamara] = useState(false);
   const [puertaCamara, setPuertaCamara] = useState(null);
+  const [registros, setRegistros] = useState([]);
+  const [error, setError] = useState('');
   const abrirCamara = (puerta = null) => { setPuertaCamara(puerta); setCamara(true); };
 
-  if (camara) return <CamaraSeguridad puertaInicial={puertaCamara} onCerrar={() => setCamara(false)} />;
+  useEffect(() => {
+    api.historial(token)
+      .then((accesos) => setRegistros(accesos.map((acceso) => [
+        `${acceso.nombres || ''} ${acceso.apellidos || ''}`.trim() || 'Vehículo registrado',
+        acceso.vehiculo_placa,
+        acceso.puerta,
+        new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(acceso.fecha_hora_entrada)),
+      ])))
+      .catch((fallo) => setError(fallo.message));
+  }, [token]);
+
+  if (camara) return <CamaraSeguridad puertaInicial={puertaCamara} onCerrar={() => setCamara(false)} registros={registros} />;
 
   return (
     <main className="app-shell admin-shell">
@@ -342,8 +343,9 @@ function PanelAdmin({ onCerrarSesion }) {
         <header className="panel-header"><span aria-hidden="true" /><h1 id="admin-title">Panel Admin</h1><button className="logout-button" type="button" onClick={onCerrarSesion} aria-label="Cerrar sesión"><Icon name="logout" /></button></header>
         <section className="admin-profile"><span className="admin-avatar"><Icon name="shield" /></span><div><h2>Superusuario</h2><p>admin@unamad.edu.pe</p></div><button type="button" onClick={() => abrirCamara()}><Icon name="camera" /><span>Escanear</span></button></section>
         <AdminNavigation activeSection={seccion} onChange={setSeccion} onCamera={() => abrirCamara()} />
-        <EstadisticasAdmin />
-        {seccion === 'registros' ? <RegistrosAdmin /> : <PuertasAdmin onCamera={abrirCamara} />}
+        <EstadisticasAdmin total={registros.length} />
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {seccion === 'registros' ? <RegistrosAdmin registros={registros} /> : <PuertasAdmin onCamera={abrirCamara} />}
       </section>
     </main>
   );
@@ -353,38 +355,108 @@ export default function App() {
   const [tab, setTab] = useState('login');
   const [adminMode, setAdminMode] = useState(false);
   const [usuario, setUsuario] = useState(null);
+  const [historial, setHistorial] = useState([]);
+  const [token, setToken] = useState(null);
   const [adminAutenticado, setAdminAutenticado] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
+
+  async function cargarPanelEstudiante(tokenActual, datosAlternos = {}) {
+    const [perfil, vehiculos, accesos] = await Promise.all([
+      api.miPerfil(tokenActual),
+      api.vehiculos(tokenActual),
+      api.historial(tokenActual),
+    ]);
+    const vehiculo = vehiculos[0];
+    setUsuario({
+      nombre: `${perfil.nombres} ${perfil.apellidos}`,
+      correo: perfil.correo_institucional,
+      matricula: perfil.matricula_academica,
+      placa: vehiculo?.placa || datosAlternos.placa || 'Sin vehículo',
+      carrera: perfil.carrera || datosAlternos.carrera || 'Sin carrera asignada',
+    });
+    setHistorial(accesos);
+  }
+
+  useEffect(() => {
+    const tokenGuardado = sessionStorage.getItem('unamad_token');
+    const rolGuardado = sessionStorage.getItem('unamad_rol');
+    if (!tokenGuardado) return;
+
+    setToken(tokenGuardado);
+    if (rolGuardado === 'superadmin' || rolGuardado === 'operador') {
+      setAdminAutenticado(true);
+      return;
+    }
+    cargarPanelEstudiante(tokenGuardado).catch(() => {
+      sessionStorage.removeItem('unamad_token');
+      sessionStorage.removeItem('unamad_rol');
+      setToken(null);
+    });
+  }, []);
 
   function changeTab(nextTab) {
     setAdminMode(false);
     setTab(nextTab);
+    setError('');
   }
 
-  function handleSubmit(event, tipoAcceso) {
+  async function handleSubmit(event, tipoAcceso) {
     event.preventDefault();
     const datos = new FormData(event.currentTarget);
+    setCargando(true);
+    setError('');
+    try {
+      const respuesta = tipoAcceso === 'register'
+        ? await api.registro({
+          nombre_completo: datos.get('nombreCompleto'),
+          matricula_academica: datos.get('matriculaAcademica'),
+          placa: datos.get('placa'),
+          carrera: datos.get('carrera'),
+          correo_institucional: datos.get('correo'),
+          password: datos.get('password'),
+        })
+        : await api.login(
+          tipoAcceso === 'admin' ? datos.get('codigoAdministrador') : datos.get('correo'),
+          datos.get('password')
+        );
 
-    if (tipoAcceso === 'admin') {
-      setAdminAutenticado(true);
-      return;
+      if (tipoAcceso === 'admin' && respuesta.usuario.rol !== 'superadmin') {
+        throw new Error('Esta cuenta no tiene permisos de superusuario');
+      }
+
+      sessionStorage.setItem('unamad_token', respuesta.token);
+      sessionStorage.setItem('unamad_rol', respuesta.usuario.rol);
+      setToken(respuesta.token);
+
+      if (respuesta.usuario.rol === 'superadmin' || respuesta.usuario.rol === 'operador') {
+        setAdminAutenticado(true);
+      } else {
+        await cargarPanelEstudiante(respuesta.token, { placa: datos.get('placa'), carrera: datos.get('carrera') });
+      }
+    } catch (fallo) {
+      sessionStorage.removeItem('unamad_token');
+      sessionStorage.removeItem('unamad_rol');
+      setToken(null);
+      setError(fallo.message || 'No se pudo completar la solicitud');
+    } finally {
+      setCargando(false);
     }
-
-    if (tipoAcceso === 'register') {
-      setUsuario({
-        nombre: datos.get('nombreCompleto'),
-        correo: datos.get('correo'),
-        matricula: datos.get('matriculaAcademica'),
-        placa: datos.get('placa').toUpperCase(),
-        carrera: datos.get('carrera'),
-      });
-      return;
-    }
-
-    setUsuario(usuarioDemo);
   }
 
-  if (usuario) return <PanelUsuario usuario={usuario} onCerrarSesion={() => setUsuario(null)} />;
-  if (adminAutenticado) return <PanelAdmin onCerrarSesion={() => { setAdminAutenticado(false); setAdminMode(false); }} />;
+  function cerrarSesion() {
+    sessionStorage.removeItem('unamad_token');
+    sessionStorage.removeItem('unamad_rol');
+    setToken(null);
+    setUsuario(null);
+    setHistorial([]);
+    setAdminAutenticado(false);
+    setAdminMode(false);
+    setError('');
+  }
+
+  if (usuario) return <PanelUsuario usuario={usuario} historial={historial} onCerrarSesion={cerrarSesion} />;
+  if (adminAutenticado) return <PanelAdmin token={token} onCerrarSesion={cerrarSesion} />;
 
   return (
     <main className={`app-shell ${adminMode ? 'admin-shell' : ''}`}>
@@ -405,13 +477,13 @@ export default function App() {
           )}
 
           {adminMode ? (
-            <LoginForm isAdmin onSubmit={handleSubmit} />
+            <LoginForm isAdmin onSubmit={handleSubmit} cargando={cargando} />
           ) : tab === 'login' ? (
-            <LoginForm onSubmit={handleSubmit} />
+            <LoginForm onSubmit={handleSubmit} cargando={cargando} />
           ) : (
-            <RegisterForm onSubmit={handleSubmit} />
+            <RegisterForm onSubmit={handleSubmit} cargando={cargando} />
           )}
-
+          {error && <p className="form-error" role="alert">{error}</p>}
         </section>
 
         <div className="admin-divider"><span>ADMIN</span></div>
