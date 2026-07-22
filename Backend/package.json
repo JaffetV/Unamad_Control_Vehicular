@@ -1,9 +1,11 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check src/controllers/auth.controller.js && node --check src/controllers/vehiculos.controller.js && node --check src/controllers/accesos.controller.js"
   },
   "keywords": [],
   "author": "",
