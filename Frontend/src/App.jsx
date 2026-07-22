@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import escudoUnamad from './assets/escudo-unamad.png';
 import mascotaUnamad from './assets/mascota-unamad.png';
 import unamadAdmin from './assets/unamad-admin.png';
