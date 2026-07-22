@@ -1,0 +1,14 @@
+# Dependencias y compilados
+node_modules/
+dist/
+coverage/
+
+# Variables locales y credenciales
+.env
+.env.*
+!.env.example
+
+# Archivos del sistema y registros
+.DS_Store
+Thumbs.db
+*.log
