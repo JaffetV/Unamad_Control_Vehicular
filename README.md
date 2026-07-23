@@ -13,6 +13,7 @@ database/       Esquema inicial de PostgreSQL
 ## Arranque local
 
 1. Crea la base de datos `unamad_control_vehicular` y ejecuta [database/schema.sql](database/schema.sql).
+   Si la base ya existía, aplica también [database/migrations/001_foto_perfil.sql](database/migrations/001_foto_perfil.sql).
 2. Inserta al menos una escuela profesional, por ejemplo:
 
 ```sql
@@ -48,5 +49,15 @@ Abre `http://localhost:5173`. El proxy de Vite redirige automáticamente `/api` 
 | Superadmin | Consulta global, gestión de vehículos y control de accesos. |
 
 Las contraseñas requieren 12 caracteres, mayúscula, minúscula y número. Los tokens se guardan por sesión en el navegador; nunca se deben versionar archivos `.env`.
+
+## MVP implementado
+
+- Registro, autenticación y panel del estudiante con historial real.
+- Registro manual de entrada/salida para operadores y superadministradores.
+- Gestión de vehículos, usuarios y carreras para superadministradores.
+- Foto de perfil validada (PNG, JPEG o WebP; hasta 2 MB) guardada localmente en `Backend/uploads/`.
+
+Para producción, el directorio `Backend/uploads/` debe montarse en almacenamiento persistente (por ejemplo, un volumen o un servicio de archivos); el disco efímero de una plataforma PaaS no conserva las fotos entre despliegues.
+# Unamad_Control_Vehicular
 # Unamad_Control_Vehicular
 # Unamad_Control_Vehicular
