@@ -49,3 +49,4 @@ Abre `http://localhost:5173`. El proxy de Vite redirige automáticamente `/api` 
 
 Las contraseñas requieren 12 caracteres, mayúscula, minúscula y número. Los tokens se guardan por sesión en el navegador; nunca se deben versionar archivos `.env`.
 # Unamad_Control_Vehicular
+# Unamad_Control_Vehicular
